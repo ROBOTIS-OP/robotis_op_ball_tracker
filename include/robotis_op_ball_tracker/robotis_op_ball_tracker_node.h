@@ -7,7 +7,8 @@
 
 #include <std_msgs/Bool.h>
 #include <geometry_msgs/Twist.h>
-#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/Image.h>
+#include <sensor_msgs/JointState.h>
 
 // Dynamic reconfigure
 #include <dynamic_reconfigure/server.h>
@@ -26,27 +27,19 @@ protected:
 
 private:
 
-
+    void imageCb(const sensor_msgs::Image& msg);
+    void jointStatesCb(const sensor_msgs::JointState& msg);
     ros::NodeHandle nh_;
-    ros::Subscriber cmd_vel_subscriber_;
-    ros::Subscriber enable_walking_subscriber_;
-    ros::Subscriber imu_subscriber_;
 
-    ros::Publisher j_pelvis_l_publisher_;
-    ros::Publisher j_thigh1_l_publisher_;
-    ros::Publisher j_thigh2_l_publisher_;
-    ros::Publisher j_tibia_l_publisher_;
-    ros::Publisher j_ankle1_l_publisher_;
-    ros::Publisher j_ankle2_l_publisher_;
-    ros::Publisher j_shoulder_l_publisher_;
+    ros::Subscriber joint_states_sub_;
+    ros::Subscriber image_sub_;
 
-    ros::Publisher j_pelvis_r_publisher_;
-    ros::Publisher j_thigh1_r_publisher_;
-    ros::Publisher j_thigh2_r_publisher_;
-    ros::Publisher j_tibia_r_publisher_;
-    ros::Publisher j_ankle1_r_publisher_;
-    ros::Publisher j_ankle2_r_publisher_;
-    ros::Publisher j_shoulder_r_publisher_;
+    ros::Publisher tilt_pub_;
+    ros::Publisher pan_pub_;
+    ros::Publisher vel_pub_;
+
+    double pan_, tilt_;
+
 
 
 

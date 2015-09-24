@@ -8,7 +8,9 @@ using namespace robotis_op;
 #include <stdlib.h>     /* srand, rand */
 #include <std_msgs/Float64.h>
 #include <math.h>
-
+#include <opencv/cv.h>
+#include <cv_bridge/cv_bridge.h>
+#include <sensor_msgs/image_encodings.h>
 namespace robotis_op {
 
 
@@ -16,25 +18,15 @@ RobotisOPBallTrackingNode::RobotisOPBallTrackingNode(ros::NodeHandle nh)
     : nh_(nh)
 {
 
-    j_pelvis_l_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_pelvis_l_position_controller/command",1);
-    j_thigh1_l_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_thigh1_l_position_controller/command",1);
-    j_thigh2_l_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_thigh2_l_position_controller/command",1);
-    j_tibia_l_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_tibia_l_position_controller/command",1);
-    j_ankle1_l_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_ankle1_l_position_controller/command",1);
-    j_ankle2_l_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_ankle2_l_position_controller/command",1);
-    j_shoulder_l_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_shoulder_l_position_controller/command",1);
 
-    j_pelvis_r_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_pelvis_r_position_controller/command",1);
-    j_thigh1_r_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_thigh1_r_position_controller/command",1);
-    j_thigh2_r_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_thigh2_r_position_controller/command",1);
-    j_tibia_r_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_tibia_r_position_controller/command",1);
-    j_ankle1_r_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_ankle1_r_position_controller/command",1);
-    j_ankle2_r_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_ankle2_r_position_controller/command",1);
-    j_shoulder_r_publisher_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_shoulder_l_position_controller/command",1);
+    ros::NodeHandle nh_;
 
-    //cmd_vel_subscriber_ = nh_.subscribe("/robotis_op/cmd_vel", 100, &SimulationWalkingNode::cmdVelCb, this);
-    //enable_walking_subscriber_ = nh_.subscribe("/robotis_op/enable_walking", 100, &SimulationWalkingNode::enableWalkCb, this);
-    //imu_subscriber_ = nh_.subscribe("/robotis_op/imu", 100, &SimulationWalkingNode::imuCb, this);
+    joint_states_sub_ = nh_.subscribe("/robotis_op/joint_states", 100, &RobotisOPBallTrackingNode::jointStatesCb, this);
+    image_sub_ = nh_.subscribe("/robotis_op/camera/image_raw", 100, &RobotisOPBallTrackingNode::imageCb, this);
+
+    tilt_pub_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_tilt_position_controller/command", 100);
+    pan_pub_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_pan_position_controller/command", 100);
+    vel_pub_ = nh_.advertise<geometry_msgs::Twist>("robotis_op/cmd_vel", 1);
 }
 
 RobotisOPBallTrackingNode::~RobotisOPBallTrackingNode()
@@ -42,7 +34,26 @@ RobotisOPBallTrackingNode::~RobotisOPBallTrackingNode()
 }
 
 
+void RobotisOPBallTrackingNode::jointStatesCb(const sensor_msgs::JointState& msg)
+{
+    pan_ = msg.position.at(10);
+    tilt_ = msg.position.at(21);
+}
 
+//http://wiki.ros.org/cv_bridge/Tutorials/UsingCvBridgeToConvertBetweenROSImagesAndOpenCVImages
+void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
+{
+    ROS_INFO("received image");
+     cv_bridge::CvImagePtr image;
+    image = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::BGR8);
+    cv::circle(image->image,cv::Point(50, 50), 10, CV_RGB(255,0,0));
+    sensor_msgs::ImagePtr msg_out;
+    msg_out = image->toImageMsg();
+    ros::Publisher img_pub =nh_.advertise<sensor_msgs::ImagePtr>("/robotis_op/ball_tracker/image_raw", 100);
+    img_pub.publish(msg_out);
+
+
+}
 
 
 }
