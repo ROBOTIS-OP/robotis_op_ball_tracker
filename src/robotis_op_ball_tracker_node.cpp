@@ -61,21 +61,23 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
     canales[1] = canales[2]-canales[2];
     canales[2] = canales[2]-canales[2];
     cv::merge(canales, mat_trans);
-   cv::cvtColor(mat_trans,mat_trans, CV_RGB2GRAY);
+    cv::cvtColor(mat_trans,mat_trans, CV_RGB2GRAY);
 
     std::vector<cv::Vec3f> circles;
 
-    cv::HoughCircles( mat_trans, circles, CV_HOUGH_GRADIENT, 1,  mat_trans.rows/8, 200, 10, 0, 0 );
+    cv::HoughCircles(mat_trans, circles, CV_HOUGH_GRADIENT, 1,  mat_trans.rows/8, 200, 10, 0, 0 );
 
     ROS_INFO("detected %i circles",circles.size());
     cv::Point ball_position;
+    bool ball_detected = false;
     for( size_t i = 0; i < circles.size(); i++ )
     {
+        ball_detected = true;
         cv::Point center((circles[i][0]), (circles[i][1]));
         ball_position = center;
         int radius = (circles[i][2]);
         // circle center
-       cv::circle( mat_blob, center, 3, cv::Scalar(0,255,0), -1, 8, 0 );
+        cv::circle( mat_blob, center, 3, cv::Scalar(0,255,0), -1, 8, 0 );
         // circle outline
         cv::circle( mat_blob, center, radius, cv::Scalar(0,0,255), 3, 8, 0 );
     }
@@ -92,7 +94,22 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
     msg_out_blob->header.stamp = ros::Time::now();
     blob_img_pub_.publish(*msg_out_blob);
 
+    if(ball_detected)
+    {
+        //head movement
+        cv::Point image_center(mat_blob.size().width/2.0,mat_blob.size().height/2.0);
+        cv::Point offset = ball_position - image_center ;
+        ROS_INFO("ball pos  %i %i",ball_position.x, ball_position.y);
+        ROS_INFO("ball pos offset %i %i",offset.x, offset.y);
 
+        double tilt_scale_ = 0.001;
+        double pan_scale_ = 0.001;
+        std_msgs::Float64 angle_msg;
+        angle_msg.data = tilt_-tilt_scale_*offset.y;
+        tilt_pub_.publish(angle_msg);
+        angle_msg.data = pan_-pan_scale_*offset.x;
+        pan_pub_.publish(angle_msg);
+    }
 
 
 
