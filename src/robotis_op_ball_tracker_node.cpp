@@ -67,7 +67,7 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
 
     cv::HoughCircles(mat_trans, circles, CV_HOUGH_GRADIENT, 1,  mat_trans.rows/8, 200, 10, 0, 0 );
 
-    ROS_INFO("detected %i circles",circles.size());
+    ROS_INFO("detected %i circles",(int)circles.size());
     cv::Point ball_position;
     bool ball_detected = false;
     for( size_t i = 0; i < circles.size(); i++ )
@@ -96,12 +96,12 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
 
     if(ball_detected)
     {
-        //head movement
         cv::Point image_center(mat_blob.size().width/2.0,mat_blob.size().height/2.0);
         cv::Point offset = ball_position - image_center ;
         ROS_INFO("ball pos  %i %i",ball_position.x, ball_position.y);
         ROS_INFO("ball pos offset %i %i",offset.x, offset.y);
 
+        //head movement
         double tilt_scale_ = 0.001;
         double pan_scale_ = 0.001;
         std_msgs::Float64 angle_msg;
@@ -109,11 +109,29 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
         tilt_pub_.publish(angle_msg);
         angle_msg.data = pan_-pan_scale_*offset.x;
         pan_pub_.publish(angle_msg);
+        i_no_detection_ = 0;
+
+        //walking
+        double a_scale_ = 0.5;
+        geometry_msgs::Twist vel;
+        vel.angular.z = a_scale_*(angle_msg.data);
+        vel.linear.x = std::max(0.0,0.8- std::abs(5.0*vel.angular.z));//l_scale_*joy->axes[axis_linear_x_];
+        vel.linear.y = 0;//l_scale_*joy->axes[axis_linear_y_];
+        vel_pub_.publish(vel);
     }
-
-
-
-
+    else if (i_no_detection_< 10)
+    {
+        i_no_detection_++;
+    }
+    else
+    {
+        geometry_msgs::Twist vel;
+        vel.angular.z = 0;
+        vel.linear.x = 0;//l_scale_*joy->axes[axis_linear_x_];
+        vel.linear.y = 0;//l_scale_*joy->axes[axis_linear_y_];
+        vel_pub_.publish(vel);
+        //todo search loop
+    }
 
 }
 

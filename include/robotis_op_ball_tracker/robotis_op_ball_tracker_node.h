@@ -42,6 +42,7 @@ private:
 
 
     double pan_, tilt_;
+    int i_no_detection_;
 
 
 
