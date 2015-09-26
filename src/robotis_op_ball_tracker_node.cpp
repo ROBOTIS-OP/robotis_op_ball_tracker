@@ -24,6 +24,8 @@ RobotisOPBallTrackingNode::RobotisOPBallTrackingNode(ros::NodeHandle nh)
     joint_states_sub_ = nh_.subscribe("/robotis_op/joint_states", 100, &RobotisOPBallTrackingNode::jointStatesCb, this);
     image_sub_ = nh_.subscribe("/robotis_op/camera/image_raw", 100, &RobotisOPBallTrackingNode::imageCb, this);
 
+    transformed_img_pub_ =nh_.advertise<sensor_msgs::Image>("/robotis_op/ball_tracker/image_transformed_raw", 100);
+    blob_img_pub_ =nh_.advertise<sensor_msgs::Image>("/robotis_op/ball_tracker/image_blob_raw", 100);
     tilt_pub_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_tilt_position_controller/command", 100);
     pan_pub_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_pan_position_controller/command", 100);
     vel_pub_ = nh_.advertise<geometry_msgs::Twist>("robotis_op/cmd_vel", 1);
@@ -43,14 +45,57 @@ void RobotisOPBallTrackingNode::jointStatesCb(const sensor_msgs::JointState& msg
 //http://wiki.ros.org/cv_bridge/Tutorials/UsingCvBridgeToConvertBetweenROSImagesAndOpenCVImages
 void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
 {
-    ROS_INFO("received image");
-     cv_bridge::CvImagePtr image;
-    image = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::BGR8);
-    cv::circle(image->image,cv::Point(50, 50), 10, CV_RGB(255,0,0));
-    sensor_msgs::ImagePtr msg_out;
-    msg_out = image->toImageMsg();
-    ros::Publisher img_pub =nh_.advertise<sensor_msgs::ImagePtr>("/robotis_op/ball_tracker/image_raw", 100);
-    img_pub.publish(msg_out);
+
+    //DETECT BALL
+    cv_bridge::CvImagePtr image_trans, image_blob;
+    image_trans = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::RGB8);
+    image_blob = cv_bridge::toCvCopy(msg,sensor_msgs::image_encodings::RGB8);
+
+    cv::Mat& mat_blob = image_blob->image;
+    cv::Mat& mat_trans = image_trans->image;
+    cv::GaussianBlur( mat_trans, mat_trans, cv::Size(9, 9), 2, 2 );
+
+    std::vector<cv::Mat> canales;
+    cv::split(mat_trans, canales);
+    canales[0] =  2*canales[0]-canales[1]-canales[2];
+    canales[1] = canales[2]-canales[2];
+    canales[2] = canales[2]-canales[2];
+    cv::merge(canales, mat_trans);
+   cv::cvtColor(mat_trans,mat_trans, CV_RGB2GRAY);
+
+    std::vector<cv::Vec3f> circles;
+
+    cv::HoughCircles( mat_trans, circles, CV_HOUGH_GRADIENT, 1,  mat_trans.rows/8, 200, 10, 0, 0 );
+
+    ROS_INFO("detected %i circles",circles.size());
+    cv::Point ball_position;
+    for( size_t i = 0; i < circles.size(); i++ )
+    {
+        cv::Point center((circles[i][0]), (circles[i][1]));
+        ball_position = center;
+        int radius = (circles[i][2]);
+        // circle center
+       cv::circle( mat_blob, center, 3, cv::Scalar(0,255,0), -1, 8, 0 );
+        // circle outline
+        cv::circle( mat_blob, center, radius, cv::Scalar(0,0,255), 3, 8, 0 );
+    }
+
+    sensor_msgs::ImagePtr msg_out_trans;
+    image_trans->encoding = "mono8";
+    msg_out_trans = image_trans->toImageMsg();
+    msg_out_trans->header.stamp = ros::Time::now();
+    transformed_img_pub_.publish(*msg_out_trans);
+
+
+    sensor_msgs::ImagePtr msg_out_blob;
+    msg_out_blob = image_blob->toImageMsg();
+    msg_out_blob->header.stamp = ros::Time::now();
+    blob_img_pub_.publish(*msg_out_blob);
+
+
+
+
+
 
 
 }

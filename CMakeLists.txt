@@ -19,6 +19,7 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
+  find_package(OpenCV REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -100,6 +101,7 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 
+   include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(include  ${catkin_INCLUDE_DIRS})
 set(HEADERS
     include/${PROJECT_NAME}/robotis_op_ball_tracker.h
@@ -187,5 +189,5 @@ add_executable(robotis_op_ball_tracker_node src/robotis_op_ball_tracker_node.cpp
 ## as an example, message headers may need to be generated before nodes
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
 ## Specify libraries to link a library or executable target against
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 target_link_libraries(robotis_op_ball_tracker_node ${PROJECT_NAME} )

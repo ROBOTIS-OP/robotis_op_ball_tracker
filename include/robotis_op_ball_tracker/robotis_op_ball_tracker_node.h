@@ -37,6 +37,9 @@ private:
     ros::Publisher tilt_pub_;
     ros::Publisher pan_pub_;
     ros::Publisher vel_pub_;
+    ros::Publisher transformed_img_pub_;
+    ros::Publisher blob_img_pub_;
+
 
     double pan_, tilt_;
 
