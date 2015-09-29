@@ -17,8 +17,6 @@ namespace robotis_op {
 RobotisOPBallTrackingNode::RobotisOPBallTrackingNode(ros::NodeHandle nh)
     : nh_(nh)
 {
-
-
     ros::NodeHandle nh_;
 
     joint_states_sub_ = nh_.subscribe("/robotis_op/joint_states", 100, &RobotisOPBallTrackingNode::jointStatesCb, this);
@@ -29,6 +27,14 @@ RobotisOPBallTrackingNode::RobotisOPBallTrackingNode(ros::NodeHandle nh)
     tilt_pub_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_tilt_position_controller/command", 100);
     pan_pub_ = nh_.advertise<std_msgs::Float64>("/robotis_op/j_pan_position_controller/command", 100);
     vel_pub_ = nh_.advertise<geometry_msgs::Twist>("robotis_op/cmd_vel", 1);
+    count_no_detection_ = 0;
+    count_search_loop_ = 0;/*
+    dp_ = 1.0;
+    minDist_ = 1.0;
+    param1_ = 200;
+    param2_ = 10;
+    min_radius_ = 0.0;
+    max_radius_ = 0.0;*/
 }
 
 RobotisOPBallTrackingNode::~RobotisOPBallTrackingNode()
@@ -42,9 +48,21 @@ void RobotisOPBallTrackingNode::jointStatesCb(const sensor_msgs::JointState& msg
     tilt_ = msg.position.at(21);
 }
 
+void RobotisOPBallTrackingNode::dynamicReconfigureCb(robotis_op_ball_tracker::robotis_op_ball_trackerConfig &config, uint32_t level)
+{
+
+    dp_ = config.dp;
+    minDist_ = config.minDist;
+    param1_ = config.param1;
+    param2_ = config.param2;
+    min_radius_ = config.minRadius;
+    max_radius_ = config.maxRadius;
+}
+
 //http://wiki.ros.org/cv_bridge/Tutorials/UsingCvBridgeToConvertBetweenROSImagesAndOpenCVImages
 void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
 {
+    ROS_INFO("cb");
 
     //DETECT BALL
     cv_bridge::CvImagePtr image_trans, image_blob;
@@ -65,7 +83,9 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
 
     std::vector<cv::Vec3f> circles;
 
-    cv::HoughCircles(mat_trans, circles, CV_HOUGH_GRADIENT, 1,  mat_trans.rows/8, 200, 10, 0, 0 );
+    ROS_INFO("%f %f %f %f %f %f",dp_, minDist_, param1_, param2_,min_radius_, max_radius_);
+
+    cv::HoughCircles(mat_trans, circles, CV_HOUGH_GRADIENT, dp_, minDist_, param1_, param2_,min_radius_, max_radius_);//1,  mat_trans.rows/8, 200, 10, 0, 0 );
 
     ROS_INFO("detected %i circles",(int)circles.size());
     cv::Point ball_position;
@@ -96,6 +116,7 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
 
     if(ball_detected)
     {
+        count_no_detection_ = 0;
         cv::Point image_center(mat_blob.size().width/2.0,mat_blob.size().height/2.0);
         cv::Point offset = ball_position - image_center ;
         ROS_INFO("ball pos  %i %i",ball_position.x, ball_position.y);
@@ -109,7 +130,6 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
         tilt_pub_.publish(angle_msg);
         angle_msg.data = pan_-pan_scale_*offset.x;
         pan_pub_.publish(angle_msg);
-        i_no_detection_ = 0;
 
         //walking
         double a_scale_ = 0.5;
@@ -119,19 +139,39 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
         vel.linear.y = 0;//l_scale_*joy->axes[axis_linear_y_];
         vel_pub_.publish(vel);
     }
-    else if (i_no_detection_< 10)
+    else if (count_no_detection_< 10)
     {
-        i_no_detection_++;
+        count_no_detection_++;
+        count_search_loop_ = 0;
     }
     else
     {
+        //search loop
+        if(count_search_loop_ < 25)
+        {
+            std_msgs::Float64 angle_msg;
+            angle_msg.data = 0 - count_search_loop_*0.05;
+            tilt_pub_.publish(angle_msg);
+        }
+        else if(count_search_loop_ < 50)
+        {
+            std_msgs::Float64 angle_msg;
+            angle_msg.data = 0 + (count_search_loop_-46)*0.05;
+            tilt_pub_.publish(angle_msg);
+        }
+        else
+        {
+            count_search_loop_ = -1;
+        }
         geometry_msgs::Twist vel;
         vel.angular.z = 0;
-        vel.linear.x = 0;//l_scale_*joy->axes[axis_linear_x_];
-        vel.linear.y = 0;//l_scale_*joy->axes[axis_linear_y_];
+        vel.linear.x = 0;
+        vel.linear.y = 0;
         vel_pub_.publish(vel);
-        //todo search loop
+
+        count_search_loop_++;
     }
+
 
 }
 
@@ -159,12 +199,12 @@ int main(int argc, char **argv)
     ros::Rate rate(control_rate);
 
 
-    /**
-    dynamic_reconfigure::Server<robotis_op_simulation_walking::robotis_op_walkingConfig> srv;
-    dynamic_reconfigure::Server<robotis_op_simulation_walking::robotis_op_walkingConfig>::CallbackType cb;
-    cb = boost::bind(&SimulationWalkingNode::dynamicReconfigureCb, &gazebo_walking_node, _1, _2);
+
+    dynamic_reconfigure::Server<robotis_op_ball_tracker::robotis_op_ball_trackerConfig> srv;
+    dynamic_reconfigure::Server<robotis_op_ball_tracker::robotis_op_ball_trackerConfig>::CallbackType cb;
+    cb = boost::bind(&RobotisOPBallTrackingNode::dynamicReconfigureCb, &gazebo_walking_node, _1, _2);
     srv.setCallback(cb);
-**/
+
 
     ROS_INFO("Ball tracking enabled");
 

@@ -12,7 +12,7 @@
 
 // Dynamic reconfigure
 #include <dynamic_reconfigure/server.h>
-//#include <robotis_op_simulation_walking/robotis_op_walkingConfig.h>
+#include <robotis_op_ball_tracker/robotis_op_ball_trackerConfig.h>
 
 namespace robotis_op {
 
@@ -20,6 +20,7 @@ class RobotisOPBallTrackingNode {
 public:
     RobotisOPBallTrackingNode(ros::NodeHandle nh);
     ~RobotisOPBallTrackingNode();
+    void dynamicReconfigureCb(robotis_op_ball_tracker::robotis_op_ball_trackerConfig &config, uint32_t level);
 
     void Process();
 protected:
@@ -41,8 +42,9 @@ private:
     ros::Publisher blob_img_pub_;
 
 
+    double dp_, minDist_, param1_, param2_, min_radius_, max_radius_;
     double pan_, tilt_;
-    int i_no_detection_;
+    int count_no_detection_, count_search_loop_;
 
 
 

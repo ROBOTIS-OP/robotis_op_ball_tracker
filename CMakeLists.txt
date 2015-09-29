@@ -14,12 +14,14 @@ find_package(catkin REQUIRED COMPONENTS
   sensor_msgs
   std_msgs
   tf
+  dynamic_reconfigure
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
   find_package(OpenCV REQUIRED)
+generate_dynamic_reconfigure_options(config/robotis_op_ball_tracker.cfg)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -89,7 +91,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES robotis_op_ball_tracker
-  CATKIN_DEPENDS cv_bridge joy nav_msgs roscpp rospy sensor_msgs std_msgs tf
+  CATKIN_DEPENDS cv_bridge joy nav_msgs roscpp rospy sensor_msgs std_msgs tf dynamic_reconfigure
   DEPENDS system_lib
 )
 
@@ -188,6 +190,7 @@ add_executable(robotis_op_ball_tracker_node src/robotis_op_ball_tracker_node.cpp
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${OpenCV_LIBRARIES})
 target_link_libraries(robotis_op_ball_tracker_node ${PROJECT_NAME} )
