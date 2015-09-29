@@ -10,6 +10,9 @@
 #include <sensor_msgs/Image.h>
 #include <sensor_msgs/JointState.h>
 
+#include <opencv/cv.h>
+#include <cv_bridge/cv_bridge.h>
+
 // Dynamic reconfigure
 #include <dynamic_reconfigure/server.h>
 #include <robotis_op_ball_tracker/robotis_op_ball_trackerConfig.h>
@@ -27,6 +30,11 @@ protected:
 
 
 private:
+
+    inline float squaredDistXY(cv::Vec3f p1, cv::Vec3f p2)
+    {
+        return ((p1[0]-p2[0])*(p1[0]-p2[0])+(p1[1]-p2[1])*(p1[1]-p2[1]));
+    }
 
     void imageCb(const sensor_msgs::Image& msg);
     void jointStatesCb(const sensor_msgs::JointState& msg);
@@ -46,6 +54,7 @@ private:
     double pan_, tilt_;
     int count_no_detection_, count_search_loop_;
 
+    cv::Vec3f previous_position_;
 
 
 

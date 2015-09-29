@@ -8,8 +8,6 @@ using namespace robotis_op;
 #include <stdlib.h>     /* srand, rand */
 #include <std_msgs/Float64.h>
 #include <math.h>
-#include <opencv/cv.h>
-#include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/image_encodings.h>
 namespace robotis_op {
 
@@ -87,9 +85,14 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
 
     cv::HoughCircles(mat_trans, circles, CV_HOUGH_GRADIENT, dp_, minDist_, param1_, param2_,min_radius_, max_radius_);//1,  mat_trans.rows/8, 200, 10, 0, 0 );
 
+
     ROS_INFO("detected %i circles",(int)circles.size());
     cv::Point ball_position;
     bool ball_detected = false;
+    float min_dist;
+    if(circles.size() > 0)
+        min_dist = squaredDistXY(previous_position_, circles[0]);
+    int min_idx = 0;
     for( size_t i = 0; i < circles.size(); i++ )
     {
         ball_detected = true;
@@ -100,6 +103,16 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
         cv::circle( mat_blob, center, 3, cv::Scalar(0,255,0), -1, 8, 0 );
         // circle outline
         cv::circle( mat_blob, center, radius, cv::Scalar(0,0,255), 3, 8, 0 );
+        if(squaredDistXY(previous_position_, circles[0]) < min_dist)
+        {
+            min_idx = i;
+            min_dist = squaredDistXY(previous_position_, circles[0]);
+            ball_position = center;
+        }
+    }
+    if(circles.size() > 0)
+    {
+        previous_position_ = circles[min_idx];
     }
 
     sensor_msgs::ImagePtr msg_out_trans;
@@ -147,22 +160,10 @@ void RobotisOPBallTrackingNode::imageCb(const sensor_msgs::Image& msg)
     else
     {
         //search loop
-        if(count_search_loop_ < 25)
-        {
-            std_msgs::Float64 angle_msg;
-            angle_msg.data = 0 - count_search_loop_*0.05;
-            tilt_pub_.publish(angle_msg);
-        }
-        else if(count_search_loop_ < 50)
-        {
-            std_msgs::Float64 angle_msg;
-            angle_msg.data = 0 + (count_search_loop_-46)*0.05;
-            tilt_pub_.publish(angle_msg);
-        }
-        else
-        {
-            count_search_loop_ = -1;
-        }
+        std_msgs::Float64 angle_msg;
+        angle_msg.data =  sin(count_search_loop_*6.24/90);
+        tilt_pub_.publish(angle_msg);
+
         geometry_msgs::Twist vel;
         vel.angular.z = 0;
         vel.linear.x = 0;
